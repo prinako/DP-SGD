@@ -1,0 +1,5 @@
+torch==2.7.1
+opacus==1.5.4
+sentencepiece==0.2.1
+sacrebleu==2.5.1
+sentence-transformers==4.1.0
