@@ -6,23 +6,19 @@ This experiment compares SGD and DP-SGD for text reconstruction in DeepSC across
 
 ## Setup
 
-Use Python 3.12 and the pinned pecSC checkout. The pilot imports the existing DeepSC architecture and loads local checkpoints in pecSC's format.
+Install uv and use the pinned pecSC checkout. uv selects Python 3.12 and installs the versions in `uv.lock`. The pilot imports the existing DeepSC architecture and loads local checkpoints in pecSC's format.
 
 ```bash
 git clone --branch kd-exp https://github.com/prinako/pecSC.git
 git -C pecSC checkout --detach bb99df8c344504457555ee1ea93d7b536fc9c32a
-python3.12 -m venv .venv
-source .venv/bin/activate
-# Optional CPU-only PyTorch wheel
-python -m pip install --index-url https://download.pytorch.org/whl/cpu torch==2.7.1
-python -m pip install -r requirements.txt
+uv sync --locked
 ```
 
 Run the offline smoke test and the privacy regression tests.
 
 ```bash
-python -m dp_sgd --pecsc pecSC --synthetic --output runs/smoke
-python -m unittest discover -s tests -v
+uv run --locked python -m dp_sgd --pecsc pecSC --synthetic --output runs/smoke
+uv run --locked python -m unittest discover -s tests -v
 ```
 
 The synthetic run uses a small DeepSC model with random weights, generated sentences, and a token-count cosine metric. It exercises the training, accounting, and evaluation code without research assets or an embedding-model download.
@@ -32,7 +28,7 @@ The synthetic run uses a small DeepSC model with random weights, generated sente
 Use the teacher's `manifest.json`, its selected encoder and decoder checkpoint pair, and the matching SentencePiece BPE model. The CLI verifies their hashes and checks the paired checkpoint metadata. Training and evaluation files accept pecSC token-pair pickles or JSON arrays of `[source_ids, target_ids]` pairs. English reconstruction records start with `<START> <EN>`, end with `<END>`, and have identical source and target IDs. Use a disjoint, shareable held-out split for evaluation.
 
 ```bash
-python -m dp_sgd --pecsc pecSC --output runs/pilot \
+uv run --locked python -m dp_sgd --pecsc pecSC --output runs/pilot \
   --teacher-manifest data/teacher/manifest.json \
   --encoder data/teacher/encoder.pth --decoder data/teacher/decoder.pth \
   --tokenizer data/public/tokenizer_bpe.model \
@@ -43,7 +39,9 @@ python -m dp_sgd --pecsc pecSC --output runs/pilot \
   --trial-seeds 42 43
 ```
 
-Set `ASSET_PROVENANCE` to describe how the transmitter, initial receiver, and tokenizer were obtained and their relationship to the protected records. Set `EMBEDDING_MODEL_COMMIT` to the 40-character revision of the specified Sentence Transformers model. The defaults use AWGN, the multilingual MPNet checkpoint used by pecSC's quality benchmark, and CPU. Pass `--device cuda` to use a compatible GPU. Opacus's per-sample gradients can use substantial memory for a full 32K-vocabulary model. Pilot size and batch size can be configured using a prespecified subset and `--batch-size`.
+Set `ASSET_PROVENANCE` to describe how the transmitter, initial receiver, and tokenizer were obtained and their relationship to the protected records. Set `EMBEDDING_MODEL_COMMIT` to the 40-character revision of the specified Sentence Transformers model. The defaults use AWGN, the multilingual MPNet checkpoint used by pecSC's quality benchmark, and CPU.
+
+On Linux x86-64 with a compatible NVIDIA GPU and driver, use `uv run --locked --no-default-groups --extra cuda python` in the command above and pass `--device cuda` to the experiment. These options select the PyTorch CUDA 12.8 build. Opacus's per-sample gradients can use substantial memory for a full 32K-vocabulary model. Start with a prespecified subset and adjust `--batch-size` to fit GPU memory.
 
 Both trained arms use Poisson sampling, sentence-averaged cross-entropy, and the same learning rate and scheduled number of steps. The pilot applies DeepSC's AWGN noise convention after normalizing each sentence's non-padding channel symbols to unit mean energy. Per-sentence normalization avoids coupling records through a batch-wide normalization factor. At each SNR and trial seed, the initial, SGD, and DP-SGD receivers decode the same noisy batch. Compare scores within this protocol because pecSC's original benchmark uses batch-wide normalization.
 

@@ -1,0 +1,39 @@
+[project]
+name = "dp-sgd"
+version = "0.1.0"
+description = "Frozen-transmitter DeepSC decoder training with SGD and DP-SGD"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "opacus==1.5.4",
+    "sacrebleu==2.5.1",
+    "sentence-transformers==4.1.0",
+    "sentencepiece==0.2.1",
+    "torch==2.7.1",
+]
+
+[project.optional-dependencies]
+cuda = ["torch==2.7.1; sys_platform == 'linux' and platform_machine == 'x86_64'"]
+
+[dependency-groups]
+cpu = ["torch==2.7.1"]
+
+[tool.uv]
+default-groups = ["cpu"]
+conflicts = [[{ group = "cpu" }, { extra = "cuda" }]]
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cu128", extra = "cuda", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
+    { index = "pytorch-cpu", group = "cpu", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
